@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Block admin pages from indexing
+Disallow: /admin/
+Disallow: /admin/login
+Disallow: /admin/dashboard
+
+# Sitemap
+Sitemap: https://therealtyxperts.com/sitemap.xml
