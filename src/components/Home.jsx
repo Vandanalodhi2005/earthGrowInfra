@@ -1,324 +1,177 @@
 'use client';
-
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import PropertyCard from './PropertyCard';
-import HeroSlider from './HeroSlider';
 import { API_URL } from '../apiConfig';
+import { motion } from 'framer-motion';
 
-function Home() {
-    const router = useRouter();
+export default function Home() {
+  const router = useRouter();
+  const [isMobile, setIsMobile] = useState(false);
+  const [properties, setProperties] = useState([]);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    setIsMobile(typeof window !== 'undefined' && window.innerWidth <= 1024);
+  }, []);
 
-    const [activeTab, setActiveTab] = useState('residential');
-    const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 1024);
-    const [categories, setCategories] = useState({
-        residential: [],
-        commercial: [],
-        resale: [],
-        interior: [],
-        plots: []
-    });
 
-    useEffect(() => {
-        window.scrollTo(0, 0);
-        const handleResize = () => setIsMobile(window.innerWidth <= 1024);
-        window.addEventListener('resize', handleResize);
-        
-        // Observer for animations
-        const observerOptions = { root: null, rootMargin: '0px', threshold: 0.1 };
-        const fadeObserver = new IntersectionObserver((entries, observer) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.style.animationPlayState = 'running';
-                    entry.target.classList.add('fade-in-up');
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, observerOptions);
 
-        const animatedElements = document.querySelectorAll('.section-header, .property-card, .service-card');
-        animatedElements.forEach(el => {
-            el.style.opacity = '0';
-            el.style.animationPlayState = 'paused';
-            fadeObserver.observe(el);
-        });
-
-        // Fetch and categorize data from API
-        const fetchData = async () => {
-            try {
-                const [propsRes, projsRes] = await Promise.all([
-                    fetch(`${API_URL}/api/properties`),
-                    fetch(`${API_URL}/api/projects`)
-                ]);
-
-                const props = propsRes.ok ? await propsRes.json() : [];
-                const projs = projsRes.ok ? (await projsRes.json()).map(p => ({ ...p, isProjectCollection: true })) : [];
-
-                // Combine Residential properties and projects
-                const resData = [
-                    ...props.filter(p => p.propertyType === 'apartment' || p.propertyType === 'villa'),
-                    ...projs.filter(p => p.category === 'residential' || p.type === 'residential')
-                ];
-
-                // Combine Commercial properties and projects
-                const commData = [
-                    ...props.filter(p => p.propertyType === 'commercial' || p.propertyType === 'plot'),
-                    ...projs.filter(p => p.category === 'commercial' || p.type === 'commercial')
-                ];
-
-                // Resale properties and projects
-                const resaleData = [
-                    ...props.filter(p => p.transaction === 'resale'),
-                    ...projs.filter(p => p.type === 'resale' || p.category === 'resale')
-                ];
-
-                // Interior projects
-                const interiorData = projs.filter(p => p.type === 'interior' || p.category === 'interior');
-
-                setCategories({
-                    residential: resData.slice(0, 4),
-                    commercial: commData.slice(0, 4),
-                    resale: resaleData.slice(0, 4),
-                    interior: interiorData.slice(0, 4),
-                    plots: projs.slice(0, 4)
-                });
-            } catch (err) {
-                console.error("Home data fetch error:", err);
-            }
-        };
-
-        fetchData();
-
-        return () => {
-            fadeObserver.disconnect();
-            window.removeEventListener('resize', handleResize);
-        };
-    }, []);
-
-    const handleSearchSubmit = (e) => {
-        e.preventDefault();
-        const btn = e.target.querySelector('.search-btn');
-        const originalText = btn.innerText;
-        btn.innerText = 'Searching...';
-        btn.style.opacity = '0.7';
-
-        setTimeout(() => {
-            btn.innerText = originalText;
-            btn.style.opacity = '1';
-            router.push('/properties');
-        }, 800);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [propsRes, projsRes] = await Promise.all([
+          fetch(`${API_URL}/api/properties`),
+          fetch(`${API_URL}/api/projects`)
+        ]);
+        const props = propsRes.ok ? await propsRes.json() : [];
+        const projs = projsRes.ok ? (await projsRes.json()).map(p => ({ ...p, isProjectCollection: true })) : [];
+        setProperties([...props, ...projs].slice(0, 3));
+      } catch (err) {
+        console.error('Home data fetch error:', err);
+      }
     };
+    fetchData();
+    // Scroll to top on navigation
+    window.scrollTo(0, 0);
+  }, []);
 
-    const CategorySection = ({ title, subtitle, data, link, dark = false, description }) => {
-        if (!data || data.length === 0) return null;
 
-        return (
-            <section className="section-padding" style={{ backgroundColor: dark ? '#f8f9fa' : 'white' }}>
-                <div className="container">
-                    <div className="section-header text-center">
-                        <span className="subtitle">{subtitle}</span>
-                        <h2>{title}</h2>
-                        <div className="divider mx-auto"></div>
-                        {description && <p className="section-desc">{description}</p>}
-                    </div>
+  const fadeUp = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
+  };
 
-                    <div className="property-grid" style={{ gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-                        {data.map((item, idx) => (
-                            <PropertyCard key={item._id || idx} property={item} />
-                        ))}
-                    </div>
+  if (!mounted) return null;
 
-                    <div style={{ textAlign: 'center', marginTop: '40px' }}>
-                        <Link href={link} className="btn btn-primary" style={{ padding: '12px 40px' }}>
-                            Explore All {title}
-                        </Link>
-                    </div>
+  return (
+    <main className="font-sans">
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-[#0A1C3A] to-[#1a365d] text-white py-24 md:py-36 flex flex-col items-center justify-center text-center">
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="container max-w-3xl">
+          <h1 className="text-4xl md:text-5xl font-extrabold mb-5 leading-snug">
+            Your Home Search, Simplified – Explore with Us!
+          </h1>
+          <p className="text-lg md:text-xl opacity-90 mb-8 max-w-2xl mx-auto">
+            Welcome to Earth Grow Infra, where your journey to finding the perfect home begins. Whether you’re looking for a cozy apartment, a spacious family house, or an investment property, we have the expertise to turn your vision into reality.
+          </p>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <Link href="/properties" className="bg-[#C69C6D] text-[#0A1C3A] px-8 py-4 rounded-lg font-bold transition-transform hover:-translate-y-1">
+              Browse Listing
+            </Link>
+            <Link href="/submit-property" className="border border-white text-white px-8 py-4 rounded-lg font-bold transition-transform hover:-translate-y-1">
+              List Your Place
+            </Link>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Diverse Properties Section */}
+      <section className="bg-[#f8f9fa] py-16 md:py-24">
+        <div className="container mx-auto max-w-6xl grid md:grid-cols-2 gap-12 items-center">
+          <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800" alt="Diverse Properties" className="w-full rounded-2xl shadow-lg" />
+          <div>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-[#0A1C3A] mb-6">
+              Diverse Properties, Infinite Possibilities
+            </h2>
+            <div className="space-y-6">
+              {[
+                { img: 'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=400', title: 'Location', desc: 'Strategically located in vibrant neighborhoods for easy access to attractions, dining, and an exciting lifestyle.' },
+                { img: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=400', title: 'Property Type', desc: 'From modern urban apartments to cozy countryside cottages, we cater to your unique preferences.' },
+                { img: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=400', title: 'Amenities', desc: 'Top‑notch amenities like fitness centers and communal spaces for a comfortable living experience.' }
+              ].map((item, idx) => (
+                <div key={idx} className="flex gap-4 items-start">
+                  <img src={item.img} alt={item.title} className="w-24 h-24 rounded-lg object-cover" />
+                  <div>
+                    <h3 className="text-xl font-semibold text-[#0A1C3A] mb-2">{item.title}</h3>
+                    <p className="text-gray-700 leading-relaxed">{item.desc}</p>
+                  </div>
                 </div>
-            </section>
-        );
-    };
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
-    return (
-        <main>
-            <HeroSlider />
+      {/* How It Works Section */}
+      <section className="py-16 md:py-24 text-center">
+        <div className="container mx-auto max-w-5xl">
+          <h2 className="text-3xl md:text-4xl font-extrabold text-[#0A1C3A] mb-8">How it works</h2>
+          <p className="text-lg text-gray-600 mb-12">Concise overview of the process involved in buying or selling a property.</p>
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              { step: '01', title: 'Inquire and Inspire', desc: 'Take the first step in securing your ideal rental or property by reaching out to us.', img: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=400' },
+              { step: '02', title: 'Guided Tours, Your Way', desc: 'Personalized property viewings tailored to your schedule and preferences.', img: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?q=80&w=400' },
+              { step: '03', title: 'Sealing the Deal, Your Style', desc: "Once you've found your perfect property, we handle the details and make it yours smoothly.", img: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=400' }
+            ].map((item, idx) => (
+              <motion.div key={idx} variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} className="bg-white rounded-xl shadow-lg p-6">
+                <div className="text-4xl font-extrabold text-[#C69C6D] mb-4">{item.step}</div>
+                <img src={item.img} alt={item.title} className="w-full h-48 object-cover rounded-md mb-4" />
+                <h3 className="text-2xl font-semibold text-[#0A1C3A] mb-2">{item.title}</h3>
+                <p className="text-gray-700">{item.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-            {/* Visual Category Navigation - 'Shop' Card Presentation */}
-            <section className="section-padding bg-white" id="category-navigation">
-                <div className="container">
-                    <div className="section-header text-center">
-                        <span className="subtitle">Our Expertise</span>
-                        <h2>Shop By Category</h2>
-                        <div className="divider mx-auto"></div>
-                    </div>
+      {/* Recent Listings Section */}
+      <section className="bg-[#f8f9fa] py-16 md:py-24">
+        <div className="container mx-auto max-w-6xl text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-extrabold text-[#0A1C3A] mb-6">Recent Listing</h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            {properties.map((item, idx) => (
+              <PropertyCard key={item._id || idx} property={item} />
+            ))}
+          </div>
+          <div className="mt-8">
+            <Link href="/properties" className="inline-block bg-[#0A1C3A] text-white px-10 py-4 rounded-lg font-bold transition-transform hover:-translate-y-1">
+              View all
+            </Link>
+          </div>
+        </div>
+      </section>
 
-                    <div className="category-card-grid">
-                        {[
-                            { id: 'residential', label: 'Residential', icon: 'fa-home', img: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070' },
-                            { id: 'commercial', label: 'Commercial', icon: 'fa-city', img: 'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069' },
-                            { id: 'resale', label: 'Resale', icon: 'fa-sync-alt', img: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=2073' },
-                            { id: 'interior', label: 'Interior', icon: 'fa-couch', img: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=2000' },
-                            { id: 'plots', label: 'Plots and Land', icon: 'fa-map-marked-alt', img: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070' }
-                        ].map(cat => (
-                            <div 
-                                key={cat.id} 
-                                className={`category-nav-card ${activeTab === cat.id ? 'active' : ''}`}
-                                onClick={() => {
-                                  setActiveTab(cat.id);
-                                  router.push(cat.id === 'plots' ? '/properties' : `/${cat.id}`);
-                                }}
-                            >
-                                <div className="cat-card-overlay"></div>
-                                <img src={cat.img} alt={cat.label} className="cat-card-img" />
-                                <div className="cat-card-content">
-                                    <i className={`fas ${cat.icon}`}></i>
-                                    <h3>{cat.label}</h3>
-                                    <span className="cat-card-btn">View {cat.label} Collection</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+      {/* Testimonials Section */}
+      <section className="py-16 md:py-24 text-center">
+        <div className="container mx-auto max-w-5xl">
+          <h2 className="text-3xl md:text-4xl font-extrabold text-[#0A1C3A] mb-8">Customer testimonials</h2>
+          <p className="text-lg text-gray-600 mb-12">Let’s hear what our customers have to say.</p>
+          <div className="grid md:grid-cols-2 gap-8">
+            {[
+              { quote: "We couldn't have asked for a better experience with Earth Grow Infra. Their expertise and dedication made our home‑buying process smooth and stress‑free.", name: 'John', location: 'Hyderabad' },
+              { quote: "I can't thank Earth Grow Infra enough for helping me find the perfect rental property. Their attention to detail stands out.", name: 'Maria H', location: 'Bangalore' },
+              { quote: "I recently sold my property with Earth Grow Infra, and I was impressed by their professionalism and market knowledge.", name: 'Sarah L', location: 'Chennai' },
+              { quote: "Selling my property through Earth Grow Infra was a breeze. Their team's marketing strategies and negotiation skills were impressive.", name: 'Whitney K', location: 'Pune' }
+            ].map((item, idx) => (
+              <div key={idx} className="bg-[#f8f9fa] p-8 rounded-2xl text-left">
+                <p className="text-xl italic text-[#0A1C3A] mb-4">"{item.quote}"</p>
+                <h4 className="text-lg font-semibold text-[#0A1C3A]">{item.name}</h4>
+                <p className="text-gray-700">Lives in {item.location}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-                    {/* Dynamic Property Grid (The 'Shop' View) */}
-                    <div className="property-grid animate-fade-in" key={activeTab} style={{ marginTop: '60px', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-                        {categories[activeTab]?.slice(0, 4).map((item, idx) => (
-                            <PropertyCard key={item._id || idx} property={item} />
-                        ))}
-                    </div>
-
-                    <div style={{ textAlign: 'center', marginTop: '50px' }}>
-                        <Link 
-                            href={`/${activeTab}`} 
-                            className="btn btn-primary" 
-                            style={{ padding: '14px 50px', borderRadius: '50px', boxShadow: 'var(--shadow-md)' }}
-                        >
-                            Explore All {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} <i className="fas fa-arrow-right" style={{ marginLeft: '10px' }}></i>
-                        </Link>
-                    </div>
-                </div>
-            </section>
-
-            {/* Residential Section */}
-            <CategorySection
-                title="Residential Properties"
-                subtitle="Luxury Living"
-                data={categories.residential}
-                link="/residential"
-                dark={true}
-                description="Discover your perfect property from our extensive collection of residential spaces defined by excellence."
-            />
-
-            {/* Commercial Section */}
-            <CategorySection
-                title="Commercial Properties"
-                subtitle="Prime Business Locations"
-                data={categories.commercial}
-                link="/commercial"
-                dark={true}
-                description="Explore prime commercial locations and plots designed for business growth and strategic investment."
-            />
-
-            {/* Resale Section */}
-            <CategorySection
-                title="Resale Properties"
-                subtitle="Best Deals"
-                data={categories.resale}
-                link="/resale"
-                description="Explore our exclusive range of resale properties offering great value and immediate possession."
-            />
-
-            {/* Interior Section */}
-            <CategorySection
-                title="Interior Designs"
-                subtitle="Transform Your Space"
-                data={categories.interior}
-                link="/interior"
-                dark={true}
-                description="Exquisite interior solutions tailored to your lifestyle, from luxury homes to commercial spaces."
-            />
-
-            {/* Featured Projects Section - Added to ensure previous data is visible */}
-            <CategorySection
-                title="Featured Projects"
-                subtitle="Our Architectural Excellence"
-                data={categories.projects}
-                link="/properties"
-                description="Browse through our diverse portfolio of successfully delivered and upcoming architectural marvels."
-            />
-
-            {/* About TRX Section */}
-            <section className="section-padding" style={{ backgroundColor: 'white' }}>
-                <div className="container">
-                    <div className="about-highlights-grid" style={{ 
-                        display: 'grid', 
-                        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', 
-                        gap: isMobile ? '40px' : '80px',
-                        alignItems: 'center'
-                    }}>
-                        <div className="about-image-side section-header">
-                            <div className="premium-image-container">
-                                <img
-                                    src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?q=80&w=2071&auto=format&fit=crop"
-                                    alt="Luxury Real Estate"
-                                    className="about-main-img"
-                                    onError={(e) => { e.target.src = '/assets/images/about_trx.png' }}
-                                />
-                                <div className="experience-badge">
-                                    <h4>8+</h4>
-                                    <p>Years of Excellence</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="about-content-side section-header">
-                            <span className="subtitle" style={{ letterSpacing: isMobile ? '2px' : '4px' }}>ABOUT REALTY XPERTS</span>
-                            <h2 style={{ fontSize: isMobile ? '1.8rem' : '2.8rem', color: 'var(--color-navy)', lineHeight: '1.2', fontWeight: '800', marginBottom: '1rem' }}>
-                                Congruence | Consistency | Curator
-                            </h2>
-                            <h3 style={{ fontSize: isMobile ? '1.2rem' : '1.5rem', color: 'var(--color-teal)', marginBottom: '1.5rem', fontWeight: '600' }}>
-                                Building Better Lives With Every Home
-                            </h3>
-                            <div className="divider"></div>
-
-                            <div className="about-text" style={{ textAlign: 'justify', fontSize: isMobile ? '0.9rem' : '1.05rem' }}>
-                                <p style={{ marginBottom: '1rem' }}>
-                                    At <strong className="text-navy">The Realty Xperts</strong>, our zeal is to create milestones that meet universal eminence, exemplify the esteem of our organization, and are crafted on a legacy of belief traversed over centuries. We are steered by our foresightedness of <strong className="text-teal">‘Creating a better living’</strong> and trust that real estate transfigures lives. Any place you buy is a springboard for the desire and dreams, for living a flourishing and persuasive life.
-                                </p>
-                                <p style={{ marginBottom: '1rem' }}>
-                                    We have the adroitness to deliver both attribute and commitment, at an inimitable swiftness. By forging the magnificent worldwide confederation, and deploying the finest people and procedures, we generate the best benefits for our consumers beyond landscapes, markets, and customer tranche.
-                                </p>
-                                <p>
-                                    As a family which makes presumably the long-lasting impact to our surroundings and the lives of our compeer, we perpetrate to act in the concern of each one of our peer. We are <strong>‘Creating a better living’</strong> in exceptionally furthermore mechanism than anyone can envisage.
-                                </p>
-                            </div>
-
-                            <div style={{ marginTop: '2.5rem' }}>
-                                <Link href="/about" className="btn btn-primary" style={{ padding: isMobile ? '12px 30px' : '14px 40px' }}>Learn Our Legacy</Link>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* Welcome/Bottom Section */}
-            <section className="section-padding" style={{ textAlign: 'center', backgroundColor: '#f8f9fa' }}>
-                <div className="container">
-                    <div className="section-header text-center" style={{ marginTop: '20px' }}>
-                        <span className="subtitle">Welcome</span>
-                        <h2>Where Dreams Meet Addresses</h2>
-                        <div className="divider mx-auto"></div>
-                        <p className="section-desc">Explore our top-tier properties, comprehensive services, and learn about our prestigious legacy.</p>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <Link href="/properties" className="btn btn-primary">View All Properties</Link>
-                        <Link href="/services" className="btn btn-outline-primary">Our Services</Link>
-                        <Link href="/about" className="btn btn-outline-primary">About Us</Link>
-                    </div>
-                </div>
-            </section>
-        </main>
-    );
+      {/* CTA Section */}
+      <section className="bg-gradient-to-br from-[#0A1C3A] to-[#1a365d] text-white py-20 md:py-28 flex flex-col items-center justify-center text-center">
+        <div className="container mx-auto max-w-2xl">
+          <h2 className="text-3xl md:text-4xl font-extrabold mb-6">Your Dream Home Awaits – Get Started Now</h2>
+          <p className="text-lg md:text-xl opacity-90 mb-8">
+            Ready to embark on your real‑estate journey? Whether buying, selling, investing, or exploring, we’re here to make it happen.
+          </p>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <Link href="/properties" className="bg-[#C69C6D] text-[#0A1C3A] px-8 py-4 rounded-lg font-bold transition-transform hover:-translate-y-1">
+              Browse Property
+            </Link>
+            <Link href="/submit-property" className="border border-white text-white px-8 py-4 rounded-lg font-bold transition-transform hover:-translate-y-1">
+              Add Listing
+            </Link>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
 }
-
-export default Home;

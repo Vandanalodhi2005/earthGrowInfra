@@ -1,109 +1,95 @@
-'use client'
+'use client';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { Menu, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { PhoneCall, Search, X } from 'lucide-react'
+export default function Header() {
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
 
-function Header() {
-    const [scrolled, setScrolled] = useState(false)
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-    const [isSearchOpen, setIsSearchOpen] = useState(false)
-    const [searchTerm, setSearchTerm] = useState('')
-    const pathname = usePathname()
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
-    useEffect(() => {
-        const handleScroll = () => {
-            setScrolled(window.scrollY > 50)
-        }
-        window.addEventListener('scroll', handleScroll)
-        return () => window.removeEventListener('scroll', handleScroll)
-    }, [])
+  // Close mobile menu on route change
+  useEffect(() => setMobileMenuOpen(false), [pathname]);
 
-    // Close mobile menu on route change
-    useEffect(() => {
-        setMobileMenuOpen(false)
-    }, [pathname])
+  const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
 
-    const isActive = (path) => {
-        return pathname === path ? 'active-link' : ''
-    }
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted) return null;
 
-    const toggleMobileMenu = () => {
-        setMobileMenuOpen(!mobileMenuOpen)
-    }
+  return (
+    <>
+      {/* Spacer to offset fixed header */}
+      <div className="h-20"></div>
+      <motion.header
+        className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-md' : 'bg-transparent'} backdrop-blur-sm`}
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ type: 'spring', stiffness: 80 }}
+        id="navbar"
+      >
+        <div className="container mx-auto max-w-7xl flex items-center justify-between px-6 py-4">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-3" onClick={() => setMobileMenuOpen(false)}>
+            <img src="/logo/logo.jpeg" alt="Earth Grow Infra Emblem" className="h-12 w-auto" />
+            <span className={`text-2xl font-extrabold ${scrolled ? 'text-primary' : 'text-white'}`}>Earth Grow</span>
+          </Link>
 
-    const handleSearchSubmit = (e) => {
-        e.preventDefault()
-        if (searchTerm.trim()) {
-            // Redirect to a global search or properties page with query
-            window.location.href = `/properties?search=${encodeURIComponent(searchTerm.trim())}`
-        }
-    }
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center gap-8">
+            <Link href="/" className={`hover:underline ${scrolled ? 'text-primary' : 'text-white'}`}>Home</Link>
+            <Link href="/properties" className={`hover:underline ${scrolled ? 'text-primary' : 'text-white'}`}>Properties</Link>
+            <Link href="/about" className={`hover:underline ${scrolled ? 'text-primary' : 'text-white'}`}>About</Link>
+            <Link
+              href="/contact"
+              className="bg-primary text-white rounded-lg px-5 py-2 font-semibold hover:bg-primary-dark transition"
+            >
+              Contact
+            </Link>
+          </nav>
 
-    return (
-        <>
-        <div style={{ height: '80px' }}></div>
-        <header className={`navbar ${scrolled ? 'scrolled' : ''}`} id="navbar">
-            <div className="container nav-content">
-                <Link href="/" className="logo-container" onClick={() => setMobileMenuOpen(false)}>
-                    <img src="/logo/logo.png" alt="Earth Grow Infra Emblem" className="logo-badge" />
+          {/* Mobile Menu Toggle */}
+          <button
+            className="md:hidden text-current focus:outline-none"
+            onClick={toggleMobileMenu}
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+          </button>
+        </div>
+
+        {/* Mobile Menu */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              className="absolute inset-x-0 top-full bg-white shadow-lg md:hidden"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25 }}
+            >
+              <div className="flex flex-col gap-6 p-6">
+                <Link href="/" className="text-primary text-lg font-medium" onClick={() => setMobileMenuOpen(false)}>Home</Link>
+                <Link href="/properties" className="text-primary text-lg font-medium" onClick={() => setMobileMenuOpen(false)}>Properties</Link>
+                <Link href="/about" className="text-primary text-lg font-medium" onClick={() => setMobileMenuOpen(false)}>About</Link>
+                <Link href="/contact" className="bg-primary text-white rounded-lg px-5 py-2 text-center font-semibold" onClick={() => setMobileMenuOpen(false)}>
+                  Contact
                 </Link>
-                <nav className={`nav-links ${mobileMenuOpen ? 'mobile-active' : ''}`}>
-                    <Link href="/" className={isActive('/')}>Home</Link>
-                    <Link href="/residential" className={isActive('/residential')}>Residential</Link>
-                    <Link href="/commercial" className={isActive('/commercial')}>Commercial</Link>
-                    <Link href="/resale" className={isActive('/resale')}>Resale</Link>
-                    <Link href="/interior" className={isActive('/interior')}>Interior</Link>
-                    <Link href="/gallery" className={isActive('/gallery')}>Gallery</Link>
-                    <Link href="/about" className={isActive('/about')}>About Us</Link>
-                    <Link href="/careers" className={isActive('/careers')}>Careers</Link>
-
-                    <Link href="/contact" className="btn btn-nav-contact">
-                        <PhoneCall size={18} />
-                        <span>Contact Us</span>
-                    </Link>
-                </nav>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <button 
-                        className="nav-search-trigger" 
-                        onClick={() => setIsSearchOpen(true)}
-                        aria-label="Search"
-                    >
-                        <Search size={22} />
-                    </button>
-
-                    <div className="mobile-menu-toggle" onClick={toggleMobileMenu}>
-                        <i className={mobileMenuOpen ? "fas fa-times" : "fas fa-bars"}></i>
-                    </div>
-                </div>
-            </div>
-
-            {/* Professional Search Overlay */}
-            <div className={`search-overlay ${isSearchOpen ? 'active' : ''}`}>
-                <div className="container search-overlay-content">
-                    <form onSubmit={handleSearchSubmit} className="search-overlay-form">
-                        <Search className="search-icon" size={24} />
-                        <input 
-                            type="text" 
-                            placeholder="Search properties, projects, or locations..." 
-                            className="search-overlay-input"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            autoFocus={isSearchOpen}
-                        />
-                        <button type="button" className="search-close-btn" onClick={() => setIsSearchOpen(false)}>
-                            <X size={24} />
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </header>
-        {/* Mobile Menu Backdrop */}
-        {mobileMenuOpen && <div className="mobile-menu-backdrop" onClick={() => setMobileMenuOpen(false)}></div>}
-        </>
-    )
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.header>
+    </>
+  );
 }
-
-export default Header
